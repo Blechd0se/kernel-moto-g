@@ -674,6 +674,7 @@ struct signal_struct {
 	struct rw_semaphore group_rwsem;
 #endif
 
+	oom_flags_t oom_flags;
 	short oom_adj;		/* OOM kill score adjustment (bit shift) */
 	short oom_score_adj;	/* OOM kill score adjustment */
 	short oom_score_adj_min;	/* OOM kill score adjustment minimum value.
