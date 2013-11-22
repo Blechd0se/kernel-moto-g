@@ -195,6 +195,7 @@ struct adreno_device {
 	struct adreno_dispatcher dispatcher;
 
 	struct work_struct start_work;
+	struct work_struct input_work;
 };
 
 /**
