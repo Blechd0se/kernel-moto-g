@@ -803,6 +803,54 @@ void wcnss_pronto_log_debug_regs(void)
 	reg = readl_relaxed(reg_addr);
 	pr_err("MCU_FDBR_FDAHB_TIMEOUT %08x\n", reg);
 
+	reg_addr = penv->pronto_mcu_base + MCU_CBR_CCAHB_ERR_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("MCU_CBR_CCAHB_ERR %08x\n", reg);
+
+	reg_addr = penv->pronto_mcu_base + MCU_CBR_CAHB_ERR_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("MCU_CBR_CAHB_ERR %08x\n", reg);
+
+	reg_addr = penv->pronto_mcu_base + MCU_CBR_CCAHB_TIMEOUT_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("MCU_CBR_CCAHB_TIMEOUT %08x\n", reg);
+
+	reg_addr = penv->pronto_mcu_base + MCU_CBR_CAHB_TIMEOUT_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("MCU_CBR_CAHB_TIMEOUT %08x\n", reg);
+
+	reg_addr = penv->pronto_mcu_base + MCU_DBR_CDAHB_ERR_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("MCU_DBR_CDAHB_ERR %08x\n", reg);
+
+	reg_addr = penv->pronto_mcu_base + MCU_DBR_DAHB_ERR_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("MCU_DBR_DAHB_ERR %08x\n", reg);
+
+	reg_addr = penv->pronto_mcu_base + MCU_DBR_CDAHB_TIMEOUT_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("MCU_DBR_CDAHB_TIMEOUT %08x\n", reg);
+
+	reg_addr = penv->pronto_mcu_base + MCU_DBR_DAHB_TIMEOUT_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("MCU_DBR_DAHB_TIMEOUT %08x\n", reg);
+
+	reg_addr = penv->pronto_mcu_base + MCU_FDBR_CDAHB_ERR_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("MCU_FDBR_CDAHB_ERR %08x\n", reg);
+
+	reg_addr = penv->pronto_mcu_base + MCU_FDBR_FDAHB_ERR_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("MCU_FDBR_FDAHB_ERR %08x\n", reg);
+
+	reg_addr = penv->pronto_mcu_base + MCU_FDBR_CDAHB_TIMEOUT_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("MCU_FDBR_CDAHB_TIMEOUT %08x\n", reg);
+
+	reg_addr = penv->pronto_mcu_base + MCU_FDBR_FDAHB_TIMEOUT_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("MCU_FDBR_FDAHB_TIMEOUT %08x\n", reg);
+
 	reg = readl_relaxed(penv->wlan_brdg_err_source);
 	pr_info_ratelimited("%s: WLAN_BRDG_ERR_SOURCE %08x\n", __func__, reg);
 
