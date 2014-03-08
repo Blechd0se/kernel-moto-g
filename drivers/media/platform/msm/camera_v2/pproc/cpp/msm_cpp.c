@@ -840,8 +840,10 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 
 	/*Get Bootloader Version*/
 	msm_cpp_write(MSM_CPP_CMD_GET_BOOTLOADER_VER, cpp_dev->base);
+#ifdef CONFIG_DEBUG
 	pr_info("MC Bootloader Version: 0x%x\n",
 		   msm_cpp_read(cpp_dev->base));
+#endif
 
 	/*Get Firmware Version*/
 	msm_cpp_write(MSM_CPP_CMD_GET_FW_VER, cpp_dev->base);
@@ -853,7 +855,9 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_CMD);
 	msm_cpp_poll(cpp_dev->base, 0x2);
 	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_FW_VER);
+#ifdef CONFIG_DEBUG
 	pr_info("CPP FW Version: 0x%x\n", msm_cpp_read(cpp_dev->base));
+#endif
 	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_TRAILER);
 
 	/*Disable MC clock*/
@@ -926,6 +930,7 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	cpp_dev->cpp_open_cnt--;
 	if (cpp_dev->cpp_open_cnt == 0) {
+#ifdef CONFIG_DEBUG
 		pr_err("%s: irq_status: 0x%x\n", __func__,
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x4));
 		pr_err("%s: DEBUG_SP: 0x%x\n", __func__,
@@ -956,6 +961,7 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x88));
 		pr_err("%s: DEBUG_R1: 0x%x\n", __func__,
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x8C));
+#endif
 		msm_camera_io_w(0x0, cpp_dev->base + MSM_CPP_MICRO_CLKEN_CTL);
 		cpp_deinit_mem(cpp_dev);
 		iommu_detach_device(cpp_dev->domain, cpp_dev->iommu_ctx);
