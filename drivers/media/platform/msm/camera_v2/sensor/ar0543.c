@@ -19,7 +19,7 @@ DEFINE_MSM_MUTEX(ar0543_mut);
 static struct msm_sensor_ctrl_t ar0543_s_ctrl;
 
 /*#define DEBUG_OTP_RAW_DUMP*/
-#define DEBUG_OTP_LSC_DUMP
+/* #define DEBUG_OTP_LSC_DUMP */
 
 #define AR0543_SN_SIZE 4
 #define AR0543_SN_ADDR 0x31f4
