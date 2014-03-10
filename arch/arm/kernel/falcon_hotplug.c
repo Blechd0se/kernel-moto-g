@@ -48,8 +48,7 @@ struct cpu_stats
 	/* For the three hot-plug-able Cores */
 	unsigned int counter[2];
 	unsigned int cpu_load_stats[3];
-
-};
+} stats;
 
 struct cpu_load_data {
         u64 prev_cpu_idle;
@@ -58,11 +57,10 @@ struct cpu_load_data {
 
 static DEFINE_PER_CPU(struct cpu_load_data, cpuload);
 
-static struct cpu_stats stats;
 static struct workqueue_struct *wq;
 static struct delayed_work decide_hotplug;
 
-static unsigned long queue_sampling;
+static unsigned int sampling_rate;
 
 static inline int get_cpu_load(unsigned int cpu)
 {
@@ -98,12 +96,13 @@ static int get_load_for_all_cpu(void)
 {
 	int cpu;
 	int load = 0;
+	struct cpu_stats *s = &stats;
 
 	for_each_online_cpu(cpu) {
 
-		stats.cpu_load_stats[cpu] = 0;
-		stats.cpu_load_stats[cpu] = get_cpu_load(cpu);
-		load = load + stats.cpu_load_stats[cpu];
+		s->cpu_load_stats[cpu] = 0;
+		s->cpu_load_stats[cpu] = get_cpu_load(cpu);
+		load = load + s->cpu_load_stats[cpu];
 	}
 	
 	load = (unsigned int) (load / num_online_cpus());	
@@ -117,6 +116,7 @@ static int get_load_for_all_cpu(void)
 static void calculate_load_for_cpu(int cpu) 
 {
 	struct cpufreq_policy policy;
+	struct cpu_stats *s = &stats;
 
 	for_each_online_cpu(cpu) {
 		cpufreq_get_policy(&policy, cpu);
@@ -124,16 +124,16 @@ static void calculate_load_for_cpu(int cpu)
 		 * We are above our threshold, so update our counter for cpu.
 		 * Consider this only, if we are on our max frequency
 		 */
-		if (get_cpu_load(cpu) >= stats.default_first_level &&
-			get_load_for_all_cpu() >= stats.default_second_level
-			&& likely(stats.counter[cpu] < HIGH_LOAD_COUNTER)
+		if (get_cpu_load(cpu) >= s->default_first_level &&
+			get_load_for_all_cpu() >= s->default_second_level
+			&& likely(s->counter[cpu] < HIGH_LOAD_COUNTER)
 			&& cpufreq_quick_get(cpu) == policy.max) {
-				stats.counter[cpu] += 2;
+				s->counter[cpu] += 2;
 		}
 
 		else {
-			if (stats.counter[cpu] > 0)
-				stats.counter[cpu]--;
+			if (s->counter[cpu] > 0)
+				s->counter[cpu]--;
 		}
 
 		/* Reset CPU */
@@ -152,30 +152,29 @@ static void __ref decide_hotplug_func(struct work_struct *work)
 {
 	int i, j;
 	int current_cpu = 0;
+	struct cpu_stats *s = &stats;
 
 	/* Do load calculation for each cpu counter */
 
 	for (i = 0, j = 2; i < 2; i++, j++) {
 		calculate_load_for_cpu(i);
 
-		if (stats.counter[i] >= 10 && get_load_for_all_cpu() >= stats.default_second_level
+		if (s->counter[i] >= 10 && get_load_for_all_cpu() >= s->default_second_level
 			&& (num_online_cpus() != num_possible_cpus())) {
 			if (!cpu_online(j)) {
 				printk("[Hot-Plug]: CPU%u ready for onlining\n", j);
 				cpu_up(j);
-				stats.timestamp = jiffies;
+				s->timestamp = jiffies;
 			}
 		}
 		else {
-			calculate_load_for_cpu(i);
-
 			/* Prevent fast on-/offlining */ 
-			if (time_is_after_jiffies(stats.timestamp + (HZ * 3))) {
+			if (time_is_after_jiffies(s->timestamp + (HZ * 3))) {		
 				/* Rearm you work_queue immediatly */
-				queue_delayed_work_on(0, wq, &decide_hotplug, queue_sampling);
+				queue_delayed_work_on(0, wq, &decide_hotplug, sampling_rate);
 			}
 			else {
-				if (stats.counter[i] > 0 && cpu_online(j)) {
+				if (s->counter[i] > 0 && cpu_online(j)) {
 						
 						/*
 						 * Decide which core should be offlined
@@ -192,38 +191,36 @@ static void __ref decide_hotplug_func(struct work_struct *work)
 						
 						printk("[Hot-Plug]: CPU%u ready for offlining\n", current_cpu);	
 						cpu_down(current_cpu);
-						stats.timestamp = jiffies;
+						s->timestamp = jiffies;
 				}
 			}
 		}
 	}
 	
 	/* Make a dedicated work_queue */
-	queue_delayed_work_on(0, wq, &decide_hotplug, queue_sampling);
+	queue_delayed_work_on(0, wq, &decide_hotplug, sampling_rate);
 }
+
+/* Start sysfs attributes */
 
 static ssize_t show_sampling_rate(struct kobject *kobj,
 					struct attribute *attr, char *buf)
 {
-	return sprintf(buf, "%lu\n", queue_sampling);
+	return sprintf(buf, "%u\n", sampling_rate);
 }
 
 static ssize_t store_sampling_rate(struct kobject *kobj,
 					 struct attribute *attr,
 					 const char *buf, size_t count)
 {
-	int ret;
-	unsigned long val;
+	unsigned int val;
 
-	ret = strict_strtoul(buf, 0, &val);
-	if (ret < 0)
-		return ret;
+	sscanf(buf, "%u", &val);
 
-	queue_sampling = val;
+	sampling_rate = val;
 	return count;
 }
-
-static struct global_attr sampling_rate_attr = __ATTR(queue_sampling, 0666,
+static struct global_attr sampling_rate_attr = __ATTR(sampling_rate, 0666,
 					show_sampling_rate, store_sampling_rate);
 
 static struct attribute *falcon_hotplug_attributes[] = 
@@ -242,13 +239,23 @@ static struct kobject *hotplug_control_kobj;
 int __init falcon_hotplug_init(void)
 {
 	int ret;
+	struct cpu_stats *s = &stats;
 	pr_info("Falcon Hotplug driver started.\n");
     
 	/* init everything here */
-	stats.default_first_level = DEFAULT_FIRST_LEVEL;
-	stats.default_second_level = DEFAULT_SECOND_LEVEL;
-	queue_sampling = msecs_to_jiffies(SAMPLING_RATE_MS);
-
+	s->default_first_level = DEFAULT_FIRST_LEVEL;
+	s->default_second_level = DEFAULT_SECOND_LEVEL;
+	/* Resetting Counters */
+	s->counter[0] = 0;
+	s->counter[1] = 0;
+	s->timestamp = jiffies;
+	sampling_rate = SAMPLING_RATE_MS;
+	
+	wq = create_singlethread_workqueue("falcon_hotplug_workqueue");
+    
+	if (!wq)
+		return -ENOMEM;
+    
 	hotplug_control_kobj = kobject_create_and_add("hotplug_control", kernel_kobj);
 	if (!hotplug_control_kobj) {
 		pr_err("%s hotplug_control kobject create failed!\n", __FUNCTION__);
@@ -258,23 +265,13 @@ int __init falcon_hotplug_init(void)
 	ret = sysfs_create_group(hotplug_control_kobj,
 			&hotplug_attr_group);
         if (ret) {
-		pr_info("%s hotplug_control sysfs create failed!\n", __FUNCTION__);
+		pr_err("%s hotplug_control sysfs create failed!\n", __FUNCTION__);
 		kobject_put(hotplug_control_kobj);
 		return ret;
 	}
 
-	/* Resetting Counters */
-	stats.counter[0] = 0;
-	stats.counter[1] = 0;
-	stats.timestamp = jiffies;
-
-	wq = create_singlethread_workqueue("falcon_hotplug_workqueue");
-    
-	if (!wq)
-		return -ENOMEM;
-    
 	INIT_DELAYED_WORK(&decide_hotplug, decide_hotplug_func);
-	queue_delayed_work_on(0, wq, &decide_hotplug, queue_sampling);
+	queue_delayed_work_on(0, wq, &decide_hotplug, sampling_rate);
 	
 	return 0;
 }
