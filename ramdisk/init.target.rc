@@ -99,9 +99,9 @@ service time_daemon /system/bin/time_daemon
    user root
    group root
 
-service mpdecision /system/bin/mpdecision --avg_comp
-   user root
-   disabled
+# service mpdecision /system/bin/mpdecision --avg_comp
+#   user root
+#   disabled
 
 service thermal-engine /system/bin/thermal-engine -c /etc/thermal-engine-8226.conf
    class main
