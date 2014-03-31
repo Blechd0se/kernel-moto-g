@@ -4338,9 +4338,6 @@ static int tapan_codec_chargepump_vdd_event(struct snd_soc_dapm_widget *w,
 	struct tapan_priv *priv = snd_soc_codec_get_drvdata(codec);
 	int ret = 0, i;
 
-	pr_info("%s: event = %d\n", __func__, event);
-
-
 	if (!priv->cp_regulators[CP_REG_BUCK]
 			&& !priv->cp_regulators[CP_REG_BHELPER]) {
 		pr_err("%s: No power supply defined for ChargePump\n",
