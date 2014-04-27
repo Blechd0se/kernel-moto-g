@@ -331,6 +331,68 @@ static unsigned long acpuclk_cortex_get_rate(int cpu)
 	return priv->current_speed->khz;
 }
 
+#ifdef CONFIG_USERSPACE_VOLTAGE_CONTROL
+
+#define MAX_VDD_CPU 1300
+#define MIN_VDD_CPU 800
+
+int get_num_freqs(void)
+{
+	int i;
+	int count = 0;
+
+	for (i = 0; priv->freq_tbl[i].use_for_scaling; i++)
+		count++;
+
+	return count;
+}
+
+ssize_t acpuclk_get_vdd_levels_str(char *buf)
+{
+
+	int i, len = 0;
+
+	if (buf) {
+		for (i = 0; priv->freq_tbl[i].khz; i++) {
+			if (priv->freq_tbl[i].use_for_scaling) {
+				len += sprintf(buf + len, "%umhz: %i mV\n", priv->freq_tbl[i].khz/1000,
+					priv->freq_tbl[i].vdd_cpu/1000);
+			}
+		}
+	}
+	return len;
+}
+
+ssize_t acpuclk_set_vdd(char *buf)
+{
+	unsigned int cur_volt;
+	char size_cur[get_num_freqs()];
+	int i;
+	int ret = 0;
+
+	if (buf) {
+		for (i = 0; priv->freq_tbl[i].use_for_scaling; i++) {
+			ret = sscanf(buf, "%d", &cur_volt);
+
+			if (ret != 1)
+				return -EINVAL;
+
+			if (cur_volt > MAX_VDD_CPU || cur_volt < MIN_VDD_CPU) {
+				printk("Voltage Control: You have set a voltage which is out of range: %i mV !\n", cur_volt);
+				return -EINVAL;
+			}
+
+			priv->freq_tbl[i].vdd_cpu = cur_volt*1000;
+
+			ret = sscanf(buf, "%s", size_cur);
+			buf += (strlen(size_cur)+1);
+		}
+	}
+	return ret;
+}
+
+#endif
+
 #ifdef CONFIG_CPU_FREQ_MSM
 static struct cpufreq_frequency_table freq_table[30];
 
