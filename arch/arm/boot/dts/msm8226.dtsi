@@ -1039,7 +1039,11 @@
 		compatible = "qcom,acpuclk-a7";
 		reg = <0xf9011050 0x8>;
 		reg-names = "rcg_base";
-		a7_cpu-supply = <&apc_vreg_corner>;
+		/* 
+		 * If Userspace Voltage Control is disabled, change this to
+		 * <&apc_vreg_corner>;
+		 */
+		a7_cpu-supply = <&pm8226_s2>;
 	};
 
 	qcom,ocmem@fdd00000 {
