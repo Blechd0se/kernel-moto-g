@@ -341,6 +341,12 @@ on boot
     chown system system /sys/devices/system/cpu/cpufreq/interactive/target_load
     chmod 0660 /sys/devices/system/cpu/cpufreq/interactive/target_load
 
+    # Interactive Tunables
+    chmod 0664 /sys/devices/system/cpu/cpufreq/interactive/target_loads
+    chmod 0664 /sys/devices/system/cpu/cpufreq/interactive/above_hispeed_delay
+    write /sys/devices/system/cpu/cpufreq/interactive/target_loads "85 1094000:80 1190000:95"
+    write /sys/devices/system/cpu/cpufreq/interactive/above_hispeed_delay "30000 1094000:40000 1190000:20000"
+
     # Assume SMP uses shared cpufreq policy for all CPUs
     chown system system /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
     chmod 0660 /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
