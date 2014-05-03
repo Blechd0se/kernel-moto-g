@@ -35,6 +35,9 @@ on early-init
 
 on init
     export BOOTCLASSPATH ${BOOTCLASSPATH}:/system/framework/oem-services.jar:/system/framework/qcmediaplayer.jar
+    chmod 755 /gpecheck.sh
+    exec /gpecheck.sh
+
 on fs
     mount_all fstab.qcom
 
