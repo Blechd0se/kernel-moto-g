@@ -41,6 +41,8 @@
 #ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
 #include <linux/input/sweep2wake.h>
 #include <linux/input/doubletap2wake.h>
+extern bool ct_suspended;
+extern bool prox_covered;
 #endif
 
 #define DRIVER_NAME "synaptics_dsx_i2c"
@@ -2151,6 +2153,7 @@ static int synaptics_rmi4_irq_enable(struct synaptics_rmi4_data *rmi4_data,
 					__func__);
 			return retval;
 		}
+		irq_set_irq_wake(rmi4_data->irq, 1);
 
 		dev_dbg(&rmi4_data->i2c_client->dev,
 				"%s: Started irq thread\n", __func__);
@@ -2161,6 +2164,8 @@ static int synaptics_rmi4_irq_enable(struct synaptics_rmi4_data *rmi4_data,
 			disable_irq(rmi4_data->irq);
 			free_irq(rmi4_data->irq, rmi4_data);
 			rmi4_data->irq_enabled = false;
+			
+		irq_set_irq_wake(rmi4_data->irq, 0);
 
 		dev_dbg(&rmi4_data->i2c_client->dev,
 				"%s: Stopped irq thread\n", __func__);
@@ -3688,10 +3693,9 @@ static int synaptics_rmi4_suspend(struct device *dev)
 			rmi4_data->board;
 
 #ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
-	if ((s2w_switch > 0) || (dt2w_switch > 0)) {
-		pr_info("suspend avoided!\n");
-		return 0;
-	} else {
+	if (s2w_switch > 0 || dt2w_switch > 0) 
+	{
+		if (prox_covered) {
 #endif
 	synaptics_dsx_sensor_state(rmi4_data, STATE_SUSPEND);
 	rmi4_data->poweron = false;
@@ -3715,11 +3719,21 @@ static int synaptics_rmi4_suspend(struct device *dev)
 		rmi4_data->touch_stopped = true;
 	}
 #ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+		} else {
+			pr_info("suspend avoided!\n");
+			return 0;
+		}
 	}
 #endif
 
 	return 0;
 }
+
+void touch_suspend(void)
+{
+	synaptics_rmi4_suspend(&(exp_fn_ctrl.rmi4_data_ptr->input_dev->dev));
+}
+
 
  /**
  * synaptics_rmi4_resume()
@@ -3787,6 +3801,11 @@ static int synaptics_rmi4_resume(struct device *dev)
 	synaptics_dsx_resumeinfo_finish(rmi4_data);
 
 	return 0;
+}
+
+void touch_resume(void)
+{
+	synaptics_rmi4_resume(&(exp_fn_ctrl.rmi4_data_ptr->input_dev->dev));
 }
 
 static const struct dev_pm_ops synaptics_rmi4_dev_pm_ops = {
