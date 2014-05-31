@@ -22,6 +22,10 @@
 #define _LINUX_DOUBLETAP2WAKE_H
 
 extern bool dt2w_scr_suspended;
+#if !defined(CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE)
+int dt2w_switch = 0;
+#else
 extern int dt2w_switch;
+#endif
 
 #endif	/* _LINUX_DOUBLETAP2WAKE_H */
