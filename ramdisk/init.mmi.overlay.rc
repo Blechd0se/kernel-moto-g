@@ -1,0 +1,5 @@
+# Magnetometer
+service akmd8963 /system/bin/akmd8963
+    class main
+    user compass
+    group compass misc input
