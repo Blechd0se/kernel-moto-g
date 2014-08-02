@@ -32,8 +32,8 @@
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <linux/input.h>
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
+#ifdef CONFIG_POWERSUSPEND
+#include <linux/powersuspend.h>
 #endif
 #include <linux/hrtimer.h>
 
@@ -455,16 +455,16 @@ static struct input_handler s2w_input_handler = {
 	.id_table	= s2w_ids,
 };
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void s2w_early_suspend(struct early_suspend *h) {
+#ifdef CONFIG_POWERSUSPEND
+static void s2w_early_suspend(struct power_suspend *h) {
 	s2w_scr_suspended = true;
 }
 
-static void s2w_late_resume(struct early_suspend *h) {
+static void s2w_late_resume(struct power_suspend *h) {
 	s2w_scr_suspended = false;
 }
 
-static struct early_suspend s2w_early_suspend_handler = {
+static struct power_suspend s2w_early_suspend_handler = {
 	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
 	.suspend = s2w_early_suspend,
 	.resume = s2w_late_resume,
@@ -593,8 +593,8 @@ static int __init sweep2wake_init(void)
 	if (rc)
 		pr_err("%s: Failed to register s2w_input_handler\n", __func__);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	register_early_suspend(&s2w_early_suspend_handler);
+#ifdef CONFIG_POWERSUSPEND
+	register_power_suspend(&s2w_early_suspend_handler);
 #endif
 
 #ifndef ANDROID_TOUCH_DECLARED
