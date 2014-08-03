@@ -6,6 +6,8 @@
 # Interactive tunables;
 echo 30000 1094000:40000 1190000:20000 > /sys/devices/system/cpu/cpufreq/interactive/above_hispeed_delay
 echo 85 1094000:80 1190000:95 > /sys/devices/system/cpu/cpufreq/interactive/target_loads
+echo 30000 1094000:20000 1190000:10000 > /sys/devices/system/cpu/cpufreq/interactive/timer_rate
+echo 50000 1094000:30000 > /sys/devices/system/cpu/cpufreq/interactive/timer_slack
 
 # Disable PoweHAL from the rom-side;
 /sbin/bbx mount -o rw,remount /system;
