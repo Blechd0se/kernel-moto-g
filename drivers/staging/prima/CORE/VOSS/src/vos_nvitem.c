@@ -1812,8 +1812,8 @@ VOS_STATUS vos_nv_write( VNV_TYPE type, v_VOID_t *inputVoidBuffer,
           goto try_perist_and_exit;
       }
 
-try_perist_and_exit:
 #ifdef WLAN_NV_OTA_UPGRADE
+try_perist_and_exit:
       if(type != VNV_FIELD_IMAGE)
           goto exit;
       status = wlan_write_to_efs((v_U8_t*)gnvFactoryTable,sizeof(nvEFSTable_factory_t));
@@ -1824,8 +1824,11 @@ try_perist_and_exit:
       }
 #endif
    }
-
+#ifdef WLAN_NV_OTA_UPGRADE
 exit:
+#else
+try_perist_and_exit:
+#endif
    return status;
 }
 
