@@ -785,11 +785,12 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 	LIST_HEAD(destroy_pipes);
 
 	mutex_lock(&mfd->lock);
+	__mdss_mdp_overlay_free_list_purge(mfd);
+
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_cleanup,
 				cleanup_list) {
 		list_move(&pipe->cleanup_list, &destroy_pipes);
 
-		/* make sure pipe fetch has been halted before freeing buffer */
 		if (mdss_mdp_pipe_fetch_halt(pipe)) {
 			/*
 			 * if pipe is not able to halt. Enter recovery mode,
@@ -803,6 +804,9 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 				mdss_mdp_mixer_unstage_all(ctl->mixer_left);
 				mdss_mdp_mixer_unstage_all(ctl->mixer_right);
 			}
+			mdss_mdp_overlay_free_buf(&pipe->back_buf);
+			__mdss_mdp_overlay_free_list_add(mfd, &pipe->front_buf);
+			pipe->mfd = NULL;
 			pipe->params_changed++;
 			mdss_mdp_pipe_queue_data(pipe, NULL);
 		}
@@ -813,8 +817,6 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 		__overlay_kickoff_requeue(mfd);
 	}
 
-	__mdss_mdp_overlay_free_list_purge(mfd);
-
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
 		if (pipe->back_buf.num_planes) {
 			/* make back buffer active */
@@ -823,12 +825,9 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 		}
 	}
 
-	list_for_each_entry_safe(pipe, tmp, &destroy_pipes, cleanup_list) {
-		__mdss_mdp_overlay_free_list_add(mfd, &pipe->front_buf);
-		mdss_mdp_overlay_free_buf(&pipe->back_buf);
-		mdss_mdp_pipe_destroy(pipe);
-	}
 	mutex_unlock(&mfd->lock);
+	list_for_each_entry_safe(pipe, tmp, &destroy_pipes, cleanup_list)
+		mdss_mdp_pipe_destroy(pipe);
 }
 
 static void __mdss_mdp_handoff_cleanup_pipes(struct msm_fb_data_type *mfd,
