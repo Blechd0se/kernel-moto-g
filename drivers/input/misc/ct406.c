@@ -552,7 +552,7 @@ static void ct406_prox_mode_uncovered(struct ct406_data *ct)
 	ct->prox_low_threshold = pilt;
 	ct->prox_high_threshold = piht;
 	ct406_write_prox_thresholds(ct);
-	pr_info("%s: Prox mode uncovered\n", __func__);
+	pr_debug("%s: Prox mode uncovered\n", __func__);
 }
 
 static void ct406_prox_mode_covered(struct ct406_data *ct)
@@ -568,7 +568,7 @@ static void ct406_prox_mode_covered(struct ct406_data *ct)
 	ct->prox_low_threshold = pilt;
 	ct->prox_high_threshold = piht;
 	ct406_write_prox_thresholds(ct);
-	pr_info("%s: Prox mode covered\n", __func__);
+	pr_debug("%s: Prox mode covered\n", __func__);
 }
 
 static void ct406_device_power_off(struct ct406_data *ct)
