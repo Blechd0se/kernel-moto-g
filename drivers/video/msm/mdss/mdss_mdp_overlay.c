@@ -887,8 +887,10 @@ static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 	if (ctl->power_on) {
 		if (!mdp5_data->mdata->batfet)
 			mdss_mdp_batfet_ctrl(mdp5_data->mdata, true);
+
 		if (!mfd->panel_info->cont_splash_enabled)
 			mdss_iommu_attach(mdp5_data->mdata);
+
 		return 0;
 	}
 
