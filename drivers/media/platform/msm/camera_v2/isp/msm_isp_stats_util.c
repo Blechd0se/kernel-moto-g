@@ -39,9 +39,8 @@ static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	rc = vfe_dev->buf_mgr->ops->get_buf(vfe_dev->buf_mgr,
 			vfe_dev->pdev->id, bufq_handle, &buf);
 	if (rc < 0) {
-		uint8_t idx = STATS_IDX(stream_info->stream_handle);
-		if (idx < MSM_ISP_STATS_MAX)
-			vfe_dev->error_info.stats_framedrop_count[idx]++;
+		vfe_dev->error_info.stats_framedrop_count[
+			STATS_IDX(stream_info->stream_handle)]++;
 		return rc;
 	}
 
@@ -367,7 +366,7 @@ static int msm_isp_stats_wait_for_cfg_done(struct vfe_device *vfe_dev)
 	int rc;
 	init_completion(&vfe_dev->stats_config_complete);
 	atomic_set(&vfe_dev->stats_data.stats_update, 2);
-	rc = wait_for_completion_timeout(
+	rc = wait_for_completion_interruptible_timeout(
 		&vfe_dev->stats_config_complete,
 		msecs_to_jiffies(VFE_MAX_CFG_TIMEOUT));
 	if (rc == 0) {

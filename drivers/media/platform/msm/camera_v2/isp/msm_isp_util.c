@@ -77,25 +77,6 @@ static struct msm_bus_scale_pdata msm_isp_bus_client_pdata = {
 	.name = "msm_camera_isp",
 };
 
-static void msm_isp_print_fourcc_error(const char *origin,
-	uint32_t fourcc_format)
-{
-	int i;
-	char text[5];
-	text[4] = '\0';
-	for (i = 0; i < 4; i++) {
-		text[i] = (char)(((fourcc_format) >> (i * 8)) & 0xFF);
-		if ((text[i] < '0') || (text[i] > 'z')) {
-			pr_err("%s: Invalid output format %d (unprintable)\n",
-				origin, fourcc_format);
-			return;
-		}
-	}
-	pr_err("%s: Invalid output format %s\n",
-		origin, text);
-	return;
-}
-
 int msm_isp_init_bandwidth_mgr(enum msm_isp_hw_client client)
 {
 	int rc = 0;
@@ -532,9 +513,7 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 		}
 		lo_tbl_ptr = cfg_data +
 			reg_cfg_cmd->u.dmi_info.lo_tbl_offset/4;
-		if (reg_cfg_cmd->cmd_type == VFE_WRITE_DMI_64BIT)
-			reg_cfg_cmd->u.dmi_info.len =
-				reg_cfg_cmd->u.dmi_info.len / 2;
+
 		for (i = 0; i < reg_cfg_cmd->u.dmi_info.len/4; i++) {
 			lo_val = *lo_tbl_ptr++;
 			if (reg_cfg_cmd->cmd_type == VFE_WRITE_DMI_16BIT) {
@@ -640,12 +619,6 @@ int msm_isp_proc_cmd(struct vfe_device *vfe_dev, void *arg)
 		pr_err("%s: reg_cfg alloc failed\n", __func__);
 		rc = -ENOMEM;
 		goto reg_cfg_failed;
-	}
-
-	if (!proc_cmd->cmd_len) {
-		pr_err("%s: Passed cmd_len as 0\n", __func__);
-		rc = -EINVAL;
-		goto cfg_data_failed;
 	}
 
 	cfg_data = kzalloc(proc_cmd->cmd_len, GFP_KERNEL);
@@ -754,7 +727,7 @@ int msm_isp_cal_word_per_line(uint32_t output_format,
 		break;
 		/*TD: Add more image format*/
 	default:
-		msm_isp_print_fourcc_error(__func__, output_format);
+		pr_err("%s: Invalid output format\n", __func__);
 		break;
 	}
 	return val;
@@ -790,7 +763,7 @@ enum msm_isp_pack_fmt msm_isp_get_pack_format(uint32_t output_format)
 	case V4L2_PIX_FMT_QRGGB12:
 		return QCOM;
 	default:
-		msm_isp_print_fourcc_error(__func__, output_format);
+		pr_err("%s: Invalid output format\n", __func__);
 		break;
 	}
 	return -EINVAL;
@@ -799,10 +772,6 @@ enum msm_isp_pack_fmt msm_isp_get_pack_format(uint32_t output_format)
 int msm_isp_get_bit_per_pixel(uint32_t output_format)
 {
 	switch (output_format) {
-	case V4L2_PIX_FMT_Y4:
-		return 4;
-	case V4L2_PIX_FMT_Y6:
-		return 6;
 	case V4L2_PIX_FMT_SBGGR8:
 	case V4L2_PIX_FMT_SGBRG8:
 	case V4L2_PIX_FMT_SGRBG8:
@@ -813,29 +782,6 @@ int msm_isp_get_bit_per_pixel(uint32_t output_format)
 	case V4L2_PIX_FMT_QRGGB8:
 	case V4L2_PIX_FMT_JPEG:
 	case V4L2_PIX_FMT_META:
-	case V4L2_PIX_FMT_NV12:
-	case V4L2_PIX_FMT_NV21:
-	case V4L2_PIX_FMT_NV14:
-	case V4L2_PIX_FMT_NV41:
-	case V4L2_PIX_FMT_YVU410:
-	case V4L2_PIX_FMT_YVU420:
-	case V4L2_PIX_FMT_YUYV:
-	case V4L2_PIX_FMT_YYUV:
-	case V4L2_PIX_FMT_YVYU:
-	case V4L2_PIX_FMT_UYVY:
-	case V4L2_PIX_FMT_VYUY:
-	case V4L2_PIX_FMT_YUV422P:
-	case V4L2_PIX_FMT_YUV411P:
-	case V4L2_PIX_FMT_Y41P:
-	case V4L2_PIX_FMT_YUV444:
-	case V4L2_PIX_FMT_YUV555:
-	case V4L2_PIX_FMT_YUV565:
-	case V4L2_PIX_FMT_YUV32:
-	case V4L2_PIX_FMT_YUV410:
-	case V4L2_PIX_FMT_YUV420:
-	case V4L2_PIX_FMT_GREY:
-	case V4L2_PIX_FMT_PAL8:
-	case MSM_V4L2_PIX_FMT_META:
 		return 8;
 	case V4L2_PIX_FMT_SBGGR10:
 	case V4L2_PIX_FMT_SGBRG10:
@@ -845,8 +791,6 @@ int msm_isp_get_bit_per_pixel(uint32_t output_format)
 	case V4L2_PIX_FMT_QGBRG10:
 	case V4L2_PIX_FMT_QGRBG10:
 	case V4L2_PIX_FMT_QRGGB10:
-	case V4L2_PIX_FMT_Y10:
-	case V4L2_PIX_FMT_Y10BPACK:
 		return 10;
 	case V4L2_PIX_FMT_SBGGR12:
 	case V4L2_PIX_FMT_SGBRG12:
@@ -856,17 +800,21 @@ int msm_isp_get_bit_per_pixel(uint32_t output_format)
 	case V4L2_PIX_FMT_QGBRG12:
 	case V4L2_PIX_FMT_QGRBG12:
 	case V4L2_PIX_FMT_QRGGB12:
-	case V4L2_PIX_FMT_Y12:
 		return 12;
+	case V4L2_PIX_FMT_NV12:
+	case V4L2_PIX_FMT_NV21:
+	case V4L2_PIX_FMT_NV14:
+	case V4L2_PIX_FMT_NV41:
+		return 8;
 	case V4L2_PIX_FMT_NV16:
 	case V4L2_PIX_FMT_NV61:
-	case V4L2_PIX_FMT_Y16:
 		return 16;
 		/*TD: Add more image format*/
 	default:
-		msm_isp_print_fourcc_error(__func__, output_format);
-		return -EINVAL;
+		pr_err("%s: Invalid output format\n", __func__);
+		break;
 	}
+	return -EINVAL;
 }
 
 void msm_isp_update_error_frame_count(struct vfe_device *vfe_dev)
@@ -941,8 +889,7 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 	error_mask1 &= irq_status1;
 	irq_status0 &= ~error_mask0;
 	irq_status1 &= ~error_mask1;
-	if (!vfe_dev->ignore_error &&
-		((error_mask0 != 0) || (error_mask1 != 0)))
+	if ((error_mask0 != 0) || (error_mask1 != 0))
 		msm_isp_update_error_info(vfe_dev, error_mask0, error_mask1);
 
 	if ((irq_status0 == 0) && (irq_status1 == 0) &&
@@ -1049,7 +996,7 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		return -EBUSY;
 	}
 
-	rc = vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev, ISP_RST_HARD);
+	rc = vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev);
 	if (rc <= 0) {
 		pr_err("%s: reset timeout\n", __func__);
 		mutex_unlock(&vfe_dev->core_mutex);

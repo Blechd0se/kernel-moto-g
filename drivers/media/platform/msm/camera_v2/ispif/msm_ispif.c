@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,7 +117,7 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 		msm_camera_io_w(ISPIF_RST_CMD_1_MASK,
 					ispif->base + ISPIF_RST_CMD_1_ADDR);
 
-	timeout = wait_for_completion_timeout(
+	timeout = wait_for_completion_interruptible_timeout(
 			&ispif->reset_complete[VFE0], msecs_to_jiffies(500));
 	CDBG("%s: VFE0 done\n", __func__);
 	if (timeout <= 0) {
@@ -129,7 +129,7 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 	}
 
 	if (ispif->hw_num_isps > 1) {
-		timeout = wait_for_completion_timeout(
+		timeout = wait_for_completion_interruptible_timeout(
 				&ispif->reset_complete[VFE1],
 				msecs_to_jiffies(500));
 		CDBG("%s: VFE1 done\n", __func__);
@@ -200,17 +200,17 @@ static int msm_ispif_reset(struct ispif_device *ispif)
 			ispif->base + ISPIF_VFE_m_INTF_CMD_0(i));
 		msm_camera_io_w(ISPIF_STOP_INTF_IMMEDIATELY,
 			ispif->base + ISPIF_VFE_m_INTF_CMD_1(i));
-		pr_debug("%s: base %lx", __func__, (unsigned long)ispif->base);
+
 		msm_camera_io_w(0, ispif->base +
 			ISPIF_VFE_m_PIX_INTF_n_CID_MASK(i, 0));
 		msm_camera_io_w(0, ispif->base +
 			ISPIF_VFE_m_PIX_INTF_n_CID_MASK(i, 1));
 		msm_camera_io_w(0, ispif->base +
-			ISPIF_VFE_m_RDI_INTF_n_CID_MASK(i, 0));
+			ISPIF_VFE_m_PIX_INTF_n_CID_MASK(i, 0));
 		msm_camera_io_w(0, ispif->base +
-			ISPIF_VFE_m_RDI_INTF_n_CID_MASK(i, 1));
+			ISPIF_VFE_m_PIX_INTF_n_CID_MASK(i, 1));
 		msm_camera_io_w(0, ispif->base +
-			ISPIF_VFE_m_RDI_INTF_n_CID_MASK(i, 2));
+			ISPIF_VFE_m_PIX_INTF_n_CID_MASK(i, 2));
 
 		msm_camera_io_w(0, ispif->base +
 			ISPIF_VFE_m_PIX_INTF_n_CROP(i, 0));
@@ -1045,8 +1045,7 @@ static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
 	case MSM_SD_SHUTDOWN: {
 		struct ispif_device *ispif =
 			(struct ispif_device *)v4l2_get_subdevdata(sd);
-		if (ispif && ispif->base)
-			msm_ispif_release(ispif);
+		msm_ispif_release(ispif);
 		return 0;
 	}
 	default:

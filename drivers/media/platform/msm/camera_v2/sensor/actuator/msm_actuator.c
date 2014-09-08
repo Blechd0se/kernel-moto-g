@@ -254,9 +254,6 @@ static int32_t msm_actuator_move_focus(
 	int32_t num_steps = move_params->num_steps;
 	struct msm_camera_i2c_reg_setting reg_setting;
 
-	curr_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
-	move_params->curr_lens_pos = curr_lens_pos;
-
 	if (copy_from_user(&ringing_params_kernel,
 		&(move_params->ringing_params[a_ctrl->curr_region_index]),
 		sizeof(struct damping_params_t))) {
@@ -270,20 +267,7 @@ static int32_t msm_actuator_move_focus(
 	if (dest_step_pos == a_ctrl->curr_step_pos)
 		return rc;
 
-	if ((sign_dir > MSM_ACTUATOR_MOVE_SIGNED_NEAR) ||
-		(sign_dir < MSM_ACTUATOR_MOVE_SIGNED_FAR)) {
-		pr_err("Invalid sign_dir = %d\n", sign_dir);
-		return -EFAULT;
-	}
-	if ((dir > MOVE_FAR) || (dir < MOVE_NEAR)) {
-		pr_err("Invalid direction = %d\n", dir);
-		return -EFAULT;
-	}
-	if (dest_step_pos > a_ctrl->total_steps) {
-		pr_err("Step pos greater than total steps = %d\n",
-		dest_step_pos);
-		return -EFAULT;
-	}
+	curr_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
 	a_ctrl->i2c_tbl_index = 0;
 	CDBG("curr_step_pos =%d dest_step_pos =%d curr_lens_pos=%d\n",
 		a_ctrl->curr_step_pos, dest_step_pos, curr_lens_pos);
@@ -321,7 +305,6 @@ static int32_t msm_actuator_move_focus(
 		a_ctrl->curr_step_pos = target_step_pos;
 	}
 
-	move_params->curr_lens_pos = curr_lens_pos;
 	reg_setting.reg_setting = a_ctrl->i2c_reg_tbl;
 	reg_setting.data_type = a_ctrl->i2c_data_type;
 	reg_setting.size = a_ctrl->i2c_tbl_index;
@@ -354,12 +337,6 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 	kfree(a_ctrl->step_position_table);
 	a_ctrl->step_position_table = NULL;
 
-	if (set_info->af_tuning_params.total_steps
-		>  MAX_ACTUATOR_AF_TOTAL_STEPS) {
-		pr_err("Max actuator totalsteps exceeded = %d\n",
-		set_info->af_tuning_params.total_steps);
-		return -EFAULT;
-	}
 	/* Fill step position table */
 	a_ctrl->step_position_table =
 		kmalloc(sizeof(uint16_t) *
@@ -431,43 +408,6 @@ static int32_t msm_actuator_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 	return rc;
 }
 
-static int32_t msm_actuator_set_position(
-	struct msm_actuator_ctrl_t *a_ctrl,
-	struct msm_actuator_set_position_t *set_pos)
-{
-	int32_t rc = 0;
-	int32_t index;
-	uint16_t next_lens_position;
-	uint16_t delay;
-	uint32_t hw_params = 0;
-	struct msm_camera_i2c_reg_setting reg_setting;
-	CDBG("%s Enter %d\n", __func__, __LINE__);
-	if (set_pos->number_of_steps  == 0)
-		return rc;
-
-	a_ctrl->i2c_tbl_index = 0;
-	for (index = 0; index < set_pos->number_of_steps; index++) {
-		next_lens_position = set_pos->pos[index];
-		delay = set_pos->delay[index];
-		a_ctrl->func_tbl->actuator_parse_i2c_params(a_ctrl,
-		next_lens_position, hw_params, delay);
-
-		reg_setting.reg_setting = a_ctrl->i2c_reg_tbl;
-		reg_setting.size = a_ctrl->i2c_tbl_index;
-		reg_setting.data_type = a_ctrl->i2c_data_type;
-
-		rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write_table_w_microdelay(
-			&a_ctrl->i2c_client, &reg_setting);
-		if (rc < 0) {
-			pr_err("%s Failed I2C write Line %d\n", __func__, __LINE__);
-			return rc;
-		}
-		a_ctrl->i2c_tbl_index = 0;
-	}
-	CDBG("%s exit %d\n", __func__, __LINE__);
-	return rc;
-}
-
 static int32_t msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl,
 	struct msm_actuator_set_info_t *set_info) {
 	struct reg_settings_t *init_settings = NULL;
@@ -488,19 +428,12 @@ static int32_t msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl,
 		pr_err("Actuator function table not found\n");
 		return rc;
 	}
-	if (set_info->af_tuning_params.total_steps
-		>  MAX_ACTUATOR_AF_TOTAL_STEPS) {
-		pr_err("Max actuator totalsteps exceeded = %d\n",
-		set_info->af_tuning_params.total_steps);
-		return -EFAULT;
-	}
-	if (set_info->af_tuning_params.region_size
-		> MAX_ACTUATOR_REGION) {
+
+	a_ctrl->region_size = set_info->af_tuning_params.region_size;
+	if (a_ctrl->region_size > MAX_ACTUATOR_REGION) {
 		pr_err("MAX_ACTUATOR_REGION is exceeded.\n");
 		return -EFAULT;
 	}
-
-	a_ctrl->region_size = set_info->af_tuning_params.region_size;
 	a_ctrl->pwd_step = set_info->af_tuning_params.pwd_step;
 	a_ctrl->total_steps = set_info->af_tuning_params.total_steps;
 
@@ -550,9 +483,7 @@ static int32_t msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl,
 		return -EFAULT;
 	}
 
-	if (set_info->actuator_params.init_setting_size &&
-		set_info->actuator_params.init_setting_size
-		<= MAX_ACTUATOR_REG_TBL_SIZE) {
+	if (set_info->actuator_params.init_setting_size) {
 		if (a_ctrl->func_tbl->actuator_init_focus) {
 			init_settings = kmalloc(sizeof(struct reg_settings_t) *
 				(set_info->actuator_params.init_setting_size),
@@ -647,54 +578,6 @@ static int32_t msm_actuator_direct_i2c_write(
 	return rc;
 }
 
-static int32_t msm_actuator_direct_i2c_read(
-		struct msm_actuator_ctrl_t *a_ctrl,
-		struct msm_actuator_i2c_read_config *actuator_i2c_read_config)
-{
-	int32_t rc = -EINVAL;
-	uint8_t *data_read = NULL;
-
-	if (NULL == actuator_i2c_read_config || NULL == a_ctrl) {
-		pr_err("%s: NULL pointer: i2c_read_config %p, a_ctrl %p\n",
-				__func__, actuator_i2c_read_config, a_ctrl);
-		goto exit;
-	}
-
-	data_read = kmalloc(sizeof(uint8_t)*actuator_i2c_read_config->data_size,
-			GFP_KERNEL);
-	if (data_read == NULL) {
-		pr_err("%s: Unable to allocate memory!\n", __func__);
-		rc = -ENOMEM;
-		goto exit;
-	}
-
-	if (a_ctrl->i2c_client.i2c_func_tbl->i2c_read_seq) {
-
-		rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read_seq(
-				&a_ctrl->i2c_client,
-				actuator_i2c_read_config->reg_addr,
-				data_read,
-				actuator_i2c_read_config->data_size);
-		if (rc < 0) {
-			pr_err("%s: Unable to read seq (%d)\n", __func__, rc);
-			rc = -EIO;
-			goto exit;
-		}
-	}
-
-	if (copy_to_user(actuator_i2c_read_config->data, data_read,
-				sizeof(uint8_t) *
-				actuator_i2c_read_config->data_size)) {
-		pr_err("%s: Unable to copy to user space!\n", __func__);
-		rc = -EFAULT;
-		goto exit;
-	}
-
-exit:
-	kfree(data_read);
-	return rc;
-}
-
 static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 	void __user *argp)
 {
@@ -730,28 +613,12 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 			pr_err("move focus failed %d\n", rc);
 		break;
 
-	case CFG_SET_POSITION:
-		rc = a_ctrl->func_tbl->actuator_set_position(a_ctrl,
-			&cdata->cfg.setpos);
-		if (rc < 0)
-			pr_err("actuator_set_position failed %d\n", rc);
-		break;
-
 	case CFG_DIRECT_I2C_WRITE:
 		rc = msm_actuator_direct_i2c_write(a_ctrl,
 				&cdata->cfg.i2c_table);
 		if (rc < 0)
 			pr_err("%s CFG_DIRECT_I2C_WRITE failed %d\n",
 					__func__, rc);
-		break;
-
-	case CFG_DIRECT_I2C_READ:
-		rc = msm_actuator_direct_i2c_read(a_ctrl,
-				&cdata->cfg.actuator_i2c_read_config);
-		if (rc < 0)
-			pr_err("%s CFG_DIRECT_I2C_READ failed %d\n",
-					__func__, rc);
-
 		break;
 
 	default:
@@ -1003,7 +870,6 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 		&pdev->id);
 	CDBG("cell-index %d, rc %d\n", pdev->id, rc);
 	if (rc < 0) {
-		kfree(msm_actuator_t);
 		pr_err("failed rc %d\n", rc);
 		return rc;
 	}
@@ -1012,7 +878,6 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 		&msm_actuator_t->cci_master);
 	CDBG("qcom,cci-master %d, rc %d\n", msm_actuator_t->cci_master, rc);
 	if (rc < 0) {
-		kfree(msm_actuator_t);
 		pr_err("failed rc %d\n", rc);
 		return rc;
 	}
@@ -1029,7 +894,6 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 	msm_actuator_t->i2c_client.cci_client = kzalloc(sizeof(
 		struct msm_camera_cci_client), GFP_KERNEL);
 	if (!msm_actuator_t->i2c_client.cci_client) {
-		kfree(msm_actuator_t);
 		pr_err("failed no memory\n");
 		return -ENOMEM;
 	}
@@ -1107,7 +971,6 @@ static struct msm_actuator msm_vcm_actuator_table = {
 		.actuator_set_default_focus = msm_actuator_set_default_focus,
 		.actuator_init_focus = msm_actuator_init_focus,
 		.actuator_parse_i2c_params = msm_actuator_parse_i2c_params,
-		.actuator_set_position = msm_actuator_set_position,
 	},
 };
 
