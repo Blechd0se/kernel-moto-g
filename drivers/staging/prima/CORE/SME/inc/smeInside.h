@@ -129,6 +129,7 @@ typedef struct TdlsSendMgmtInfo
   tANI_U8 dialog;
   tANI_U16 statusCode;
   tANI_U8 responder;
+  tANI_U32 peerCapability;
   tANI_U8 *buf;
   tANI_U8 len;
 } tTdlsSendMgmtCmdInfo;
@@ -326,12 +327,18 @@ eHalStatus csrTdlsTeardownReq(tHalHandle hHal, tANI_U8 sessionId,
 #endif /* FEATURE_WLAN_TDLS */
 
 #if  defined (WLAN_FEATURE_VOWIFI_11R) || defined (FEATURE_WLAN_CCX) || defined(FEATURE_WLAN_LFR)
-eHalStatus csrFlushBgScanRoamChannelList(tpAniSirGlobal pMac);
+eHalStatus csrFlushCfgBgScanRoamChannelList(tpAniSirGlobal pMac);
 eHalStatus csrCreateBgScanRoamChannelList(tpAniSirGlobal pMac,
                                             const tANI_U8 *pChannelList,
                                             const tANI_U8 numChannels);
 eHalStatus csrUpdateBgScanConfigIniChannelList(tpAniSirGlobal pMac, eCsrBand eBand);
 #endif
 
+#if defined(FEATURE_WLAN_CCX) && defined(FEATURE_WLAN_CCX_UPLOAD)
+eHalStatus csrCreateRoamScanChannelList(tpAniSirGlobal pMac,
+                                                tANI_U8 *pChannelList,
+                                                tANI_U8 numChannels,
+                                                const eCsrBand eBand);
+#endif
 
 #endif //#if !defined( __SMEINSIDE_H )

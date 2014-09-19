@@ -144,8 +144,6 @@ VOS_STATUS wpalPacketRXLowResourceCB(vos_pkt_t *pPacket, v_VOID_t *userData)
 
    wpalPacketAvailableCB( (wpt_packet *)pPacket, userData );
 
-   wpalPacketAvailableCB = NULL;
-
    return VOS_STATUS_SUCCESS;
 }
 
@@ -176,6 +174,22 @@ wpt_packet * wpalPacketAlloc(wpt_packet_type pktType, wpt_uint32 nPktSize,
       break;
 
    case eWLAN_PAL_PKT_TYPE_RX_RAW:
+      /* Set the wpalPacketAvailableCB before we try to get a VOS
+       * packet from the 'free list' and reset it if vos_pkt_get_packet()
+       * returns a valid packet. This order is required to avoid the
+       * race condition:
+       * 1. The below call to vos_pkt_get_packet() in RX_Thread determines
+       *    that no more packets are available in the 'free list' and sets
+       *    the low resource callbacks.
+       * 2. in parallel vos_pkt_return_packet() is called in MC_Thread for a
+       *    Management frame before wpalPacketAlloc() gets a chance to set
+       *    wpalPacketAvailableCB and since the 'low resource callbacks'
+       *    are set the callback function - wpalPacketRXLowResourceCB is
+       *    executed,but since wpalPacketAvailableCB is still NULL the low
+       *    resource recovery fails.
+       */
+      wpalPacketAvailableCB = rxLowCB;
+
       vosStatus = vos_pkt_get_packet(&pVosPkt, VOS_PKT_TYPE_RX_RAW,
                                        nPktSize, 1, VOS_FALSE, 
                                        wpalPacketRXLowResourceCB, usrData);
@@ -184,11 +198,8 @@ wpt_packet * wpalPacketAlloc(wpt_packet_type pktType, wpt_uint32 nPktSize,
       /* Reserve the entire raw rx buffer for DXE */
       if( vosStatus == VOS_STATUS_SUCCESS )
       {
+        wpalPacketAvailableCB = NULL;
         vosStatus =  vos_pkt_reserve_head_fast( pVosPkt, &pData, nPktSize ); 
-      }
-      else
-      {
-        wpalPacketAvailableCB = rxLowCB;
       }
 #endif /* FEATURE_R33D */
       if((NULL != pVosPkt) && (VOS_STATUS_E_RESOURCES != vosStatus))
@@ -206,7 +217,7 @@ wpt_packet * wpalPacketAlloc(wpt_packet_type pktType, wpt_uint32 nPktSize,
 
    default:
       WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, 
-                  " try to allocate unsupported packet type (%d)\n", pktType);
+                  " try to allocate unsupported packet type (%d)", pktType);
       break;
    }
 
@@ -276,7 +287,7 @@ wpt_uint32 wpalPacketGetLength(wpt_packet *pPkt)
    }
    else
    {
-      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s  failed\n",
+      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s  failed",
          __func__);
    }
 
@@ -307,12 +318,22 @@ wpt_status wpalPacketRawTrimHead(wpt_packet *pPkt, wpt_uint32 size)
       return eWLAN_PAL_STATUS_E_INVAL;
    }
 
-   VOS_ASSERT( (eWLAN_PAL_PKT_TYPE_TX_802_11_MGMT == WPAL_PACKET_GET_TYPE(pPkt)) ||
-               (eWLAN_PAL_PKT_TYPE_RX_RAW == WPAL_PACKET_GET_TYPE(pPkt)) );
+   if ((eWLAN_PAL_PKT_TYPE_TX_802_11_MGMT == WPAL_PACKET_GET_TYPE(pPkt)) ||
+               (eWLAN_PAL_PKT_TYPE_RX_RAW == WPAL_PACKET_GET_TYPE(pPkt)))
+   {
+       // Continue to trim the packet
+   }
+   else
+   {
+      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR,
+                "%s : neither 80211 managment packet nor RAW packet", __func__);
+      VOS_ASSERT(0);
+      return eWLAN_PAL_STATUS_E_INVAL;
+   }
 
    if( !VOS_IS_STATUS_SUCCESS(vos_pkt_trim_head(WPAL_TO_VOS_PKT(pPkt), (v_SIZE_t)size)) )
    {
-      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s  Invalid trim(%d)\n",
+      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s  Invalid trim(%d)",
          __func__, size);
       status = eWLAN_PAL_STATUS_E_INVAL;
    }
@@ -340,11 +361,22 @@ wpt_status wpalPacketRawTrimTail(wpt_packet *pPkt, wpt_uint32 size)
       return eWLAN_PAL_STATUS_E_INVAL;
    }
 
-   VOS_ASSERT( (eWLAN_PAL_PKT_TYPE_TX_802_11_MGMT == WPAL_PACKET_GET_TYPE(pPkt)) ||
-               (eWLAN_PAL_PKT_TYPE_RX_RAW == WPAL_PACKET_GET_TYPE(pPkt)) );
+   if ((eWLAN_PAL_PKT_TYPE_TX_802_11_MGMT == WPAL_PACKET_GET_TYPE(pPkt)) ||
+               (eWLAN_PAL_PKT_TYPE_RX_RAW == WPAL_PACKET_GET_TYPE(pPkt)))
+   {
+       // Continue to trim the packet
+   }
+   else
+   {
+      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR,
+                "%s : neither 80211 managment packet nor RAW packet", __func__);
+      VOS_ASSERT(0);
+      return eWLAN_PAL_STATUS_E_INVAL;
+   }
+
    if( !VOS_IS_STATUS_SUCCESS(vos_pkt_trim_tail(WPAL_TO_VOS_PKT(pPkt), (v_SIZE_t)size)) )
    {
-      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s  Invalid trim(%d)\n",
+      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s  Invalid trim(%d)",
          __func__, size);
       status = eWLAN_PAL_STATUS_E_INVAL;
    }
@@ -411,7 +443,7 @@ wpt_status wpalPacketSetRxLength(wpt_packet *pPkt, wpt_uint32 len)
    if( (eWLAN_PAL_PKT_TYPE_RX_RAW != WPAL_PACKET_GET_TYPE(pPkt)))
    {
      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, 
-                "%s  Invalid packet type(%d)\n",  __func__, 
+                "%s  Invalid packet type(%d)",  __func__,
                 WPAL_PACKET_GET_TYPE(pPkt));
      return eWLAN_PAL_STATUS_E_INVAL;
    }
@@ -454,6 +486,7 @@ WPT_STATIC WPT_INLINE void* itGetOSPktAddrFromDevice( wpt_packet *pPacket )
 {
 
    struct sk_buff *skb;
+
    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
    if ( VOS_STATUS_SUCCESS != 
         vos_pkt_get_os_packet(WPAL_TO_VOS_PKT(pPacket), (void**)&skb, VOS_FALSE ))
@@ -462,6 +495,19 @@ WPT_STATIC WPT_INLINE void* itGetOSPktAddrFromDevice( wpt_packet *pPacket )
    }
    else
    {
+     if(skb->data == skb->tail)
+     {
+#ifdef WLAN_BUG_ON_SKB_ERROR
+       wpalDevicePanic();
+#else
+       WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_FATAL,
+                "%s: skb->data == skb->tail. Attempting recovery "
+                "skb:%p, head:%p, tail:%p, data:%p",
+                  __func__, skb, skb->head, skb->tail, skb->data);
+
+      skb->data = skb->head;
+#endif
+     }
      /*Map skb data into dma-able memory 
        (changes will be commited from cache) */
      return (void*)dma_map_single( NULL, skb->data, skb->len, DMA_FROM_DEVICE );
@@ -572,7 +618,7 @@ wpt_status wpalIteratorNext(wpt_iterator *pIter, wpt_packet *pPacket, void **ppA
       ( NULL == ppAddr ) || ( NULL == pLen )))
    {
      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, 
-                "%s  Invalid input parameters \n",  __func__ );
+                "%s  Invalid input parameters",  __func__ );
      return eWLAN_PAL_STATUS_E_INVAL;
    }
 

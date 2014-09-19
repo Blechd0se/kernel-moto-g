@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -72,7 +72,7 @@ eHalStatus p2pProcessRemainOnChannelCmd(tpAniSirGlobal pMac, tSmeCmd *p2pRemaino
 {
     eHalStatus status = eHAL_STATUS_SUCCESS;
     tSirRemainOnChnReq* pMsg;
-    tANI_U16 len;
+    tANI_U32 len;
     tCsrRoamSession *pSession = CSR_GET_SESSION( pMac, p2pRemainonChn->sessionId );
 
     if(!pSession)
@@ -111,14 +111,20 @@ eHalStatus p2pProcessRemainOnChannelCmd(tpAniSirGlobal pMac, tSmeCmd *p2pRemaino
 #else
     len = sizeof(tSirRemainOnChnReq) + pMac->p2pContext.probeRspIeLength;
 #endif
-
+    if( len > 0xFFFF )
+    {
+       /*In coming len for Msg is more then 16bit value*/
+       smsLog(pMac, LOGE, FL("  Message length is very large, %d"),
+            len);
+       return eHAL_STATUS_FAILURE;
+    }
     status = palAllocateMemory(pMac->hHdd, (void**)&pMsg, len );
     if(HAL_STATUS_SUCCESS(status))
     {
         VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_INFO, "%s call", __func__);
         palZeroMemory(pMac->hHdd, pMsg, sizeof(tSirRemainOnChnReq));
         pMsg->messageType = eWNI_SME_REMAIN_ON_CHANNEL_REQ;
-        pMsg->length = len;
+        pMsg->length = (tANI_U16)len;
         palCopyMemory( pMac, pMsg->selfMacAddr, pSession->selfMacAddr, sizeof(tSirMacAddr) ); 
         pMsg->chnNum = p2pRemainonChn->u.remainChlCmd.chn;
         pMsg->phyMode = p2pRemainonChn->u.remainChlCmd.phyMode;
@@ -784,7 +790,13 @@ eHalStatus p2pRemainOnChannel(tHalHandle hHal, tANI_U8 sessionId,
 #endif
     } while(0);
   
-    smsLog(pMac, LOGW, "exiting function %s", __func__);
+    smsLog(pMac, LOGW, "%s: status %d",
+#ifdef WLAN_FEATURE_P2P_INTERNAL
+           " for reason = %d" __func__, status, reason
+#else
+           __func__, status
+#endif
+    );
   
     return(status);
 }
@@ -1069,7 +1081,8 @@ void p2pRetryActionFrameTimerHandler(void *pContext)
    tpAniSirGlobal pMac = PMAC_STRUCT( p2pContext->hHal );
 
    p2pContext->PeerFound = TRUE;
-   smsLog( pMac, LOGE, "%s Calling remain on channel ", __func__);
+   smsLog( pMac, LOGE, "%s Calling remain on channel to Resend Action Frame ",
+           __func__);
    status = p2pRemainOnChannel( pMac, p2pContext->SMEsessionId, p2pContext->P2PListenChannel/*pScanResult->BssDescriptor.channelId*/, P2P_REMAIN_ON_CHAN_TIMEOUT_LOW,
                                     NULL, NULL, TRUE, eP2PRemainOnChnReasonSendFrame);
    if(status != eHAL_STATUS_SUCCESS)
@@ -1157,7 +1170,7 @@ eHalStatus p2pCreateActionFrame(tpAniSirGlobal pMac, tANI_U8 SessionID, void *p2
       return eHAL_STATUS_FAILURE;
    }
 
-   csrScanAbortMacScan(pMac);
+   csrScanAbortMacScan(pMac, eCSR_SCAN_ABORT_DEFAULT);
 
    switch (actionFrameType)
    {
@@ -1572,7 +1585,7 @@ eHalStatus P2P_ListenStateDiscoverable(tHalHandle hHal, tANI_U8 sessionId,
       pMac->p2pContext[sessionId].listenDuration = P2P_LISTEN_TIMEOUT_HIGH;
       if (pMac->p2pContext[sessionId].state == eP2P_STATE_DISCONNECTED)
       {
-         VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_INFO, "%s Calling RemainOnChannel with diration %d on channel %d",
+         VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_INFO, "%s Calling RemainOnChannel with duration %d on channel %d",
                      __func__, pMac->p2pContext[sessionId].listenDuration, pMac->p2pContext[sessionId].P2PListenChannel);
          p2pRemainOnChannel( pMac, pMac->p2pContext[sessionId].SMEsessionId, pMac->p2pContext[sessionId].P2PListenChannel, 
                               pMac->p2pContext[sessionId].listenDuration, p2pListenStateDiscoverableCallback, 
@@ -1604,7 +1617,7 @@ eHalStatus P2P_ListenStateDiscoverable(tHalHandle hHal, tANI_U8 sessionId,
 
       if (pMac->p2pContext[sessionId].state == eP2P_STATE_DISCONNECTED)
       {
-         VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_INFO, "%s Calling RemainOnChannel with diration %d on channel %d",
+         VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_INFO, "%s Calling RemainOnChannel with duration %d on channel %d",
                      __func__, pMac->p2pContext[sessionId].listenDuration, pMac->p2pContext[sessionId].P2PListenChannel);
          p2pRemainOnChannel( pMac, pMac->p2pContext[sessionId].SMEsessionId, pMac->p2pContext[sessionId].P2PListenChannel, 
                               pMac->p2pContext[sessionId].listenDuration, p2pListenStateDiscoverableCallback, 

@@ -79,7 +79,20 @@ wpt_status wpalPostCtrlMsg(void *pPalContext, wpt_msg *pMsg)
       return status;
    }
 
-   msg.type = 0;  //This field is not used because VOSS doesn't check it.
+   if ((WPAL_MC_MSG_SMD_NOTIF_OPEN_SIG == pMsg->type) ||
+       (WPAL_MC_MSG_SMD_NOTIF_DATA_SIG == pMsg->type))
+   {
+      /* SMD NOTIFY MSG has none 0 vos MSG type
+       * If VOS MC MSG flush procedure detect this,
+       * Do not free MSG body */
+      msg.type = pMsg->type;
+   }
+   else
+   {
+      /* Default MSG type
+       * VOS MC MSG flush procedure will free MSG body */
+      msg.type = 0;
+   }
    msg.reserved = 0;
    msg.bodyval = 0;
    msg.bodyptr = pMsg;
@@ -89,7 +102,7 @@ wpt_status wpalPostCtrlMsg(void *pPalContext, wpt_msg *pMsg)
    }
    else
    {
-      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s fail to post msg %d\n",
+      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s fail to post msg %d",
                   __func__, pMsg->type);
    }
 
@@ -127,7 +140,7 @@ wpt_status wpalPostTxMsg(void *pPalContext, wpt_msg *pMsg)
    }
    else
    {
-      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s fail to post msg %d\n",
+      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s fail to post msg %d",
                   __func__, pMsg->type);
    }
 
@@ -164,7 +177,7 @@ wpt_status wpalPostRxMsg(void *pPalContext, wpt_msg *pMsg)
    }
    else
    {
-      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s fail to post msg %d\n",
+      WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s fail to post msg %d",
                   __func__, pMsg->type);
    }
 

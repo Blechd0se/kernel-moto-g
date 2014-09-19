@@ -121,7 +121,7 @@ tSirRetStatus schAppendAddnIE(tpAniSirGlobal pMac, tpPESession psessionEntry,
      if((status = wlan_cfgGetInt(pMac, WNI_CFG_PROBE_RSP_BCN_ADDNIE_FLAG,
                                  &present)) != eSIR_SUCCESS)
     {
-        limLog(pMac, LOGP, FL("Unable to get WNI_CFG_PROBE_RSP_BCN_ADDNIE_FLAG"));
+        schLog(pMac, LOGP, FL("Unable to get WNI_CFG_PROBE_RSP_BCN_ADDNIE_FLAG"));
         return status;
     }
 
@@ -130,7 +130,7 @@ tSirRetStatus schAppendAddnIE(tpAniSirGlobal pMac, tpPESession psessionEntry,
         if((status = wlan_cfgGetStrLen(pMac, WNI_CFG_PROBE_RSP_BCN_ADDNIE_DATA,
                                        &len)) != eSIR_SUCCESS)
         {
-            limLog(pMac, LOGP,
+            schLog(pMac, LOGP,
                 FL("Unable to get WNI_CFG_PROBE_RSP_BCN_ADDNIE_DATA length"));
             return status;
         }
@@ -160,7 +160,7 @@ tSirRetStatus schAppendAddnIE(tpAniSirGlobal pMac, tpPESession psessionEntry,
                         }
                         else
                         {
-                            limLog(pMac, LOGE,
+                            schLog(pMac, LOGE,
                                FL("Not able to insert NoA because of length constraint"));
                         }
                     }
@@ -352,7 +352,7 @@ tSirRetStatus schSetFixedBeaconFields(tpAniSirGlobal pMac,tpPESession psessionEn
 #ifdef WLAN_FEATURE_11AC
     if(psessionEntry->vhtCapability)
     {        
-        limLog( pMac, LOGW, FL("Populate VHT IEs in Beacon"));
+        schLog( pMac, LOGW, FL("Populate VHT IEs in Beacon"));
         PopulateDot11fVHTCaps( pMac, &pBcn2->VHTCaps );
         PopulateDot11fVHTOperation( pMac, &pBcn2->VHTOperation);
         // we do not support multi users yet
@@ -362,19 +362,6 @@ tSirRetStatus schSetFixedBeaconFields(tpAniSirGlobal pMac,tpPESession psessionEn
             PopulateDot11fOperatingMode( pMac, &pBcn2->OperatingMode, psessionEntry );
     }
 #endif
-
-    if (psessionEntry->oxygenNwkIniFeatureEnabled &&
-       (eLIM_STA_IN_IBSS_ROLE == psessionEntry->limSystemRole)) {
-        if ((status = wlan_cfgGetInt(pMac, WNI_CFG_OXYGEN_NETWORK_DATA,
-                                     &tmp)) != eSIR_SUCCESS)
-        {
-            limLog(pMac, LOGW, FL("Unable to get WNI_CFG_OXYGEN_NETWORK_DATA"));
-        }
-        else {
-            pBcn2->OxygenNetwork.present = 1;
-            pBcn2->OxygenNetwork.data = (tmp & 0xffff);
-        }
-    }
 
     PopulateDot11fExtSuppRates( pMac, POPULATE_DOT11F_RATES_OPERATIONAL,
                                 &pBcn2->ExtSuppRates, psessionEntry );
@@ -401,7 +388,7 @@ tSirRetStatus schSetFixedBeaconFields(tpAniSirGlobal pMac,tpPESession psessionEn
     else
     {
         if (wlan_cfgGetInt(pMac, (tANI_U16) WNI_CFG_WPS_ENABLE, &tmp) != eSIR_SUCCESS)
-            limLog(pMac, LOGP,"Failed to cfg get id %d", WNI_CFG_WPS_ENABLE );
+            schLog(pMac, LOGP,"Failed to cfg get id %d", WNI_CFG_WPS_ENABLE );
 
         wpsApEnable = tmp & WNI_CFG_WPS_ENABLE_AP;
 

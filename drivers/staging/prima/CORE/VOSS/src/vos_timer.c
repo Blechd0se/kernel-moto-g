@@ -207,7 +207,14 @@ static void vos_linux_timer_callback ( v_U32_t data )
 
    tryAllowingSleep( type );
 
-   VOS_ASSERT( callback ); 
+   if (callback == NULL)
+   {
+       VOS_ASSERT(0);
+       VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+                 "%s: No TIMER callback, Could not enqueue timer to any queue",
+                 __func__);
+       return;
+   }
 
    // If timer has expired then call vos_client specific callback 
    if ( vos_sched_is_tx_thread( threadId ) )
@@ -457,7 +464,7 @@ VOS_STATUS vos_timer_init_debug( vos_timer_t *timer, VOS_TIMER_TYPE timerType,
     if(VOS_STATUS_SUCCESS != vosStatus)
     {
          VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR, 
-             "%s: Unable to insert node into List vosStatus %d\n", __func__, vosStatus);
+             "%s: Unable to insert node into List vosStatus %d", __func__, vosStatus);
     }
    
    // set the various members of the timer structure 
