@@ -276,17 +276,17 @@ static void __ref decide_hotplug_func(struct work_struct *work)
 #ifdef CONFIG_POWERSUSPEND
 static inline void suspend_func(struct work_struct *work)
 {	 
-	int cpu;
+//	int cpu;
 
 	/* cancel the hotplug work when the screen is off and flush the WQ */
 	flush_workqueue(wq);
 	cancel_delayed_work_sync(&decide_hotplug);
 	cancel_work_sync(&resume);
-
+/*
 	for_each_online_cpu(cpu) 
 		if (cpu)
 			cpu_down(cpu);
-
+*/
 	hot_data->online_cpus = num_online_cpus();
 
 	if (hot_data->debug)
