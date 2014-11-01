@@ -33,6 +33,7 @@
 
 #define DEFAULT_FIRST_LEVEL	80
 #define DEFAULT_SECOND_LEVEL	60
+#define HIGH_CPU_LOAD		95
 #define HIGH_LOAD_COUNTER	25
 #define SAMPLING_RATE		4
 #define DEFAULT_MIN_ONLINE	2
@@ -81,7 +82,7 @@ static struct workqueue_struct *wq;
 static struct delayed_work decide_hotplug;
 #ifdef CONFIG_POWERSUSPEND
 static struct work_struct resume;
-static struct work_struct suspend;
+static struct delayed_work suspend;
 #endif
 
 #ifndef SMART_LOAD_CALC
@@ -169,7 +170,7 @@ static inline void calculate_load_for_cpu(int cpu)
 
 	/* CPU is stressed */
 	if (hot_data->low_latency) {
-		if (cpu_load >= 100 && avg_load >= 100) {
+		if (cpu_load >= HIGH_CPU_LOAD && avg_load >= HIGH_CPU_LOAD) {
 			if (hot_data->debug)
 				pr_info("[Hot-Plug]: CPU%u is stressed, "
 					"considering boosting CPU%u \n", 
@@ -276,21 +277,35 @@ static void __ref decide_hotplug_func(struct work_struct *work)
 #ifdef CONFIG_POWERSUSPEND
 static inline void suspend_func(struct work_struct *work)
 {	 
-	int cpu;
+	int cpu = 0;
+	int cpu_load;
 
-	/* cancel the hotplug work when the screen is off and flush the WQ */
-	flush_workqueue(wq);
-	cancel_delayed_work_sync(&decide_hotplug);
-	cancel_work_sync(&resume);
+#ifndef SMART_LOAD_CALC
+	cpu_load = get_cpu_load(cpu);
+#else
+	cpu_load = cpufreq_quick_get_util(cpu);
+#endif
 
-	for_each_online_cpu(cpu) 
-		if (cpu)
-			cpu_down(cpu);
+	/*
+	 * To avoid a bad user experience while listening to audio
+	 * when we are suspended, we check if the cpu reaches a
+	 * critical level. If so, we online another core. This 
+	 * bypasses some of the core logic to allow a simpler design.
+	 */
+	if (cpu_load >= HIGH_CPU_LOAD) {
+		set_cpu_up(1);
+	} else {
+		for_each_online_cpu(cpu) 
+			if (cpu)
+				cpu_down(cpu);
+	}
 
 	hot_data->online_cpus = num_online_cpus();
 
 	if (hot_data->debug)
-		pr_info("[Hot-Plug]: Early Suspend stopping Hotplug work. CPUs online: %d\n", hot_data->online_cpus);
+		pr_info("[Hot-Plug]: Early Suspend started delayed Hotplug work. CPUs online: %d\n", hot_data->online_cpus);
+
+	queue_delayed_work(system_power_efficient_wq, &suspend, msecs_to_jiffies(hot_data->hotplug_sampling * HZ * 5));
 }
 
 static inline void resume_func(struct work_struct *work)
@@ -298,11 +313,8 @@ static inline void resume_func(struct work_struct *work)
 	/* Online only the second core */
 	set_cpu_up(1);
 
-	cancel_work_sync(&suspend);
-
-	/* Resetting Counters */
-	hot_data->counter[0] = 0;
-	hot_data->counter[1] = 0;
+	flush_workqueue(wq);
+	cancel_delayed_work_sync(&suspend);
 
 	if (hot_data->debug)
 		pr_info("[Hot-Plug]: Late Resume starting Hotplug work. CPUs online: %d\n", hot_data->online_cpus);
@@ -312,7 +324,16 @@ static inline void resume_func(struct work_struct *work)
 
 static void aero_hotplug_suspend(struct power_suspend *h)
 {
-	queue_work(system_power_efficient_wq, &suspend);
+	/* cancel the hotplug work when the screen is off and flush the WQ */
+	flush_workqueue(wq);
+	cancel_delayed_work_sync(&decide_hotplug);
+	cancel_work_sync(&resume);
+
+	/* Resetting Counters */
+	hot_data->counter[0] = 0;
+	hot_data->counter[1] = 0;
+
+	queue_delayed_work(system_power_efficient_wq, &suspend, msecs_to_jiffies(hot_data->hotplug_sampling * HZ * 5));
 }
 
 
@@ -439,7 +460,7 @@ int __init aero_hotplug_init(void)
 #ifdef CONFIG_POWERSUSPEND
 	register_power_suspend(&aero_hotplug_power_suspend);
 	INIT_WORK(&resume, resume_func);
-	INIT_WORK(&suspend, suspend_func);
+	INIT_DELAYED_WORK(&suspend, suspend_func);
 #endif
 	INIT_DELAYED_WORK(&decide_hotplug, decide_hotplug_func);
 	queue_delayed_work_on(0, wq, &decide_hotplug, msecs_to_jiffies(20000));
