@@ -57,6 +57,11 @@ struct hotplug_data {
 	/* The frequency threshold at or above onlining starts */
 	unsigned int up_frequency;
 
+#ifdef CONFIG_POWERSUSPEND
+	/* If enabled, only one core will be active during suspend */
+	bool battery_saver;
+#endif
+
 	/* Debug flag */
 	bool debug;
 
@@ -64,7 +69,7 @@ struct hotplug_data {
 	unsigned int online_cpus;
 	unsigned int possible_cpus;
 
-	/* For the three hot-plug-able Cores */
+	/* For the three hot-plug-able cores */
 	unsigned int counter[2];
 	unsigned int cpu_load_stats[3];
 } *hot_data;
@@ -283,9 +288,11 @@ static inline void suspend_func(struct work_struct *work)
 	cancel_delayed_work_sync(&decide_hotplug);
 	cancel_work_sync(&resume);
 
-	for_each_online_cpu(cpu) 
-		if (cpu)
-			cpu_down(cpu);
+	if (hot_data->battery_saver) {
+		for_each_online_cpu(cpu) 
+			if (cpu)
+				cpu_down(cpu);
+	}
 
 	hot_data->online_cpus = num_online_cpus();
 
@@ -296,7 +303,8 @@ static inline void suspend_func(struct work_struct *work)
 static inline void resume_func(struct work_struct *work)
 {
 	/* Online only the second core */
-	set_cpu_up(1);
+	if (hot_data->battery_saver)
+		set_cpu_up(1);
 
 	cancel_work_sync(&suspend);
 
@@ -342,6 +350,7 @@ show_tunable(all_cpus_threshold, all_cpus_threshold);
 show_tunable(low_latency, low_latency);
 show_tunable(debug, debug);
 show_tunable(up_frequency, up_frequency);
+show_tunable(battery_saver, battery_saver);
 
 #define store_tunable(file_name, object)					\
 static ssize_t store_##file_name						\
@@ -360,6 +369,7 @@ store_tunable(all_cpus_threshold, all_cpus_threshold);
 store_tunable(low_latency, low_latency);
 store_tunable(debug, debug);
 store_tunable(up_frequency, up_frequency);
+store_tunable(battery_saver, battery_saver);
 
 define_one_global_rw(single_cpu_threshold);
 define_one_global_rw(hotplug_sampling);
@@ -368,6 +378,7 @@ define_one_global_rw(all_cpus_threshold);
 define_one_global_rw(low_latency);
 define_one_global_rw(debug);
 define_one_global_rw(up_frequency);
+define_one_global_rw(battery_saver);
 
 static struct attribute *aero_hotplug_attributes[] = 
 {
@@ -377,6 +388,7 @@ static struct attribute *aero_hotplug_attributes[] =
 	&all_cpus_threshold.attr,
 	&up_frequency.attr,
 	&low_latency.attr,
+	&battery_saver.attr,
 	&debug.attr,
 	NULL
 };
@@ -406,6 +418,7 @@ int __init aero_hotplug_init(void)
 	hot_data->low_latency = false;
 	hot_data->debug = false;
 	hot_data->up_frequency = policy.max;
+	hot_data->battery_saver = true;
 
 	if (hot_data->debug)
 		pr_info("[Hot-Plug]: Aero Hotplug driver started.\n");
