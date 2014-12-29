@@ -40,13 +40,18 @@
 #define MAX_ACTUATOR_REGION 5
 #define MAX_ACTUATOR_INIT_SET 12
 #define MAX_ACTUATOR_REG_TBL_SIZE 8
+#define MAX_ACTUATOR_AF_TOTAL_STEPS 1024
 
 #define MOVE_NEAR 0
 #define MOVE_FAR  1
 
+#define MSM_ACTUATOR_MOVE_SIGNED_FAR -1
+#define MSM_ACTUATOR_MOVE_SIGNED_NEAR  1
+
 #define MAX_EEPROM_NAME 32
 
 #define MAX_AF_ITERATIONS 3
+#define MAX_NUMBER_OF_STEPS 47
 
 enum flash_type {
 	LED_FLASH = 1,
@@ -487,8 +492,10 @@ enum msm_actuator_cfg_type_t {
 	CFG_GET_ACTUATOR_INFO,
 	CFG_SET_ACTUATOR_INFO,
 	CFG_SET_DEFAULT_FOCUS,
+	CFG_SET_POSITION,
 	CFG_MOVE_FOCUS,
 	CFG_DIRECT_I2C_WRITE, /*to support non-trivial actuators*/
+	CFG_DIRECT_I2C_READ,
 };
 
 enum actuator_type {
@@ -530,6 +537,7 @@ struct msm_actuator_move_params_t {
 	int8_t sign_dir;
 	int16_t dest_step_pos;
 	int32_t num_steps;
+	uint16_t curr_lens_pos;
 	struct damping_params_t *ringing_params;
 };
 
@@ -580,9 +588,17 @@ enum af_camera_name {
 	ACTUATOR_MAIN_CAM_3,
 	ACTUATOR_MAIN_CAM_4,
 	ACTUATOR_MAIN_CAM_5,
+	ACTUATOR_MAIN_CAM_6,
+	ACTUATOR_MAIN_CAM_7,
 	ACTUATOR_WEB_CAM_0,
 	ACTUATOR_WEB_CAM_1,
 	ACTUATOR_WEB_CAM_2,
+};
+
+struct msm_actuator_set_position_t {
+	uint16_t number_of_steps;
+	uint16_t pos[MAX_NUMBER_OF_STEPS];
+	uint16_t delay[MAX_NUMBER_OF_STEPS];
 };
 
 struct msm_actuator_i2c {
@@ -597,6 +613,12 @@ struct msm_actuator_i2c_table {
 	uint32_t size;
 };
 
+struct msm_actuator_i2c_read_config {
+	uint16_t reg_addr;
+	uint32_t data_size;
+	uint8_t *data;
+};
+
 struct msm_actuator_cfg_data {
 	int cfgtype;
 	uint8_t is_af_supported;
@@ -604,8 +626,10 @@ struct msm_actuator_cfg_data {
 		struct msm_actuator_move_params_t move;
 		struct msm_actuator_set_info_t set_info;
 		struct msm_actuator_get_info_t get_info;
+		struct msm_actuator_set_position_t setpos;
 		enum af_camera_name cam_name;
 		struct msm_actuator_i2c_table i2c_table;
+		struct msm_actuator_i2c_read_config actuator_i2c_read_config;
 	} cfg;
 };
 
@@ -632,6 +656,8 @@ enum msm_camera_led_config_t {
 
 struct msm_camera_led_cfg_t {
 	enum msm_camera_led_config_t cfgtype;
+	uint32_t torch_current;
+	uint32_t flash_current[2];
 };
 
 #define VIDIOC_MSM_SENSOR_CFG \
