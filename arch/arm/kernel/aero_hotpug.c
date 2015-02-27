@@ -30,13 +30,13 @@
 #include <linux/powersuspend.h>
 #endif
 
-#define DEFAULT_FIRST_LEVEL	80
-#define DEFAULT_SECOND_LEVEL	60
+#define DEFAULT_FIRST_LEVEL	90
+#define DEFAULT_SECOND_LEVEL	70
 #define HIGH_LOAD_COUNTER	25
-#define SAMPLING_RATE		2
-#define DEFAULT_MIN_ONLINE	2
-#define DEFAULT_UP_FREQUENCY	1200000
-//#define SMART_LOAD_CALC
+#define SAMPLING_RATE		4
+#define DEFAULT_MIN_ONLINE	1
+#define DEFAULT_UP_FREQUENCY	1100000
+#define SMART_LOAD_CALC
 
 struct hotplug_data {
 	/* The threshold level for the average load of all onlined cpus */
@@ -242,7 +242,7 @@ static inline void put_cpu_down(int cpu)
 		 */
 		for (i = 0; i < 2; i++) {
 			parent_load = get_load(i);
-			if (cpu_load >= parent_load &&
+			if (cpu_load > parent_load &&
 				cpufreq_quick_get(j) >= cpufreq_quick_get(i)) {
 				if (hot_data->debug)						
 					pr_info("[Hot-Plug]: Preventing CPU%u from offlining\n", j);
