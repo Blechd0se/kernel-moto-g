@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/devfreq.h>
 #include <linux/msm_adreno_devfreq.h>
+#include <linux/slab.h>
 #include "governor.h"
 
 #define DEVFREQ_SIMPLE_ONDEMAND	"simple_ondemand"
@@ -24,14 +25,20 @@
 #define CEILING			50000
 
 /* Default constants for DevFreq-Simple-Ondemand (DFSO) */
-#define DFSO_UPTHRESHOLD	20
-#define DFSO_DOWNDIFFERENCTIAL	10
+#define DFSO_UPTHRESHOLD	60
+#define DFSO_DOWNDIFFERENCTIAL	30
 
-static unsigned int dfso_upthreshold = DFSO_UPTHRESHOLD;
-static unsigned int dfso_downdifferential = DFSO_DOWNDIFFERENCTIAL;
+struct gpu_meta_data {
 
-static unsigned int level = 0;
-static unsigned int load = 0;
+	unsigned int dfso_upthreshold;
+
+	unsigned int dfso_downdifferential;
+
+	unsigned int level;
+
+	unsigned int load;
+
+} *gpu_data;
 
 static inline int get_freq_num(struct devfreq *df) {
 
@@ -76,42 +83,32 @@ static int devfreq_simple_ondemand_func(struct devfreq *df,
 	/*
 	 * Assume the max frequency if;
 	 * 1.) The total time is 0 (division by 0)
-	 * 2.) It's already really busy
-	 * 3.) The driver has no clue about the initial frequency
+	 * 2.) The driver has no clue about the initial frequency
 	 *
 	 */
 	if (stat.total_time == 0
-		|| stat.busy_time * 100 >
-	    		stat.total_time * dfso_upthreshold
 		|| stat.current_frequency == 0) {
 		*freq = max;
 		return ret;
 	}
 
-	/* Keep the current frequency */
-	if (stat.busy_time * 100 >
-	    stat.total_time * (dfso_upthreshold - dfso_downdifferential)) {
-		*freq = stat.current_frequency;
-		return ret;
-	}
-
 	/* Set the desired frequency based on the load */
-	load = (100 * (unsigned int)stat.busy_time) /
+	gpu_data->load = (100 * (unsigned int)stat.busy_time) /
 			(unsigned int)stat.total_time;
 
-	if (load >= dfso_upthreshold) {
-		if (level > 0)		
-			level--;		
-	} else if (load <= dfso_downdifferential) {
-		if (level < get_freq_num(df))		
-			level++;
+	if (gpu_data->load >= gpu_data->dfso_upthreshold) {
+		if (gpu_data->level > 0)		
+			gpu_data->level--;		
+	} else if (gpu_data->load <= gpu_data->dfso_downdifferential) {
+		if (gpu_data->level < get_freq_num(df))		
+			gpu_data->level++;
 	} else {
 		/* If unsure about the frequency, stay at the current */
 		*freq = stat.current_frequency;
 		return ret;
 	}
 
-	*freq = df->profile->freq_table[level];
+	*freq = df->profile->freq_table[gpu_data->level];
 
 	return ret;
 }
@@ -120,7 +117,7 @@ static ssize_t simple_ondemand_upthreshold_show(struct kobject *kobj,
 						struct kobj_attribute *attr,
 						char *buf)
 {
-	return sprintf(buf, "%d\n", dfso_upthreshold);
+	return sprintf(buf, "%d\n", gpu_data->dfso_upthreshold);
 }
 
 static ssize_t simple_ondemand_upthreshold_store(struct kobject *kobj,
@@ -130,10 +127,10 @@ static ssize_t simple_ondemand_upthreshold_store(struct kobject *kobj,
 	unsigned int val;
 
 	sscanf(buf, "%d", &val);
-	if (val > 100 || val < dfso_downdifferential)
+	if (val > 100 || val < gpu_data->dfso_downdifferential)
 		return -EINVAL;
 
-	dfso_upthreshold = val;
+	gpu_data->dfso_upthreshold = val;
 
 	return count;
 }
@@ -142,7 +139,7 @@ static ssize_t simple_ondemand_downdifferential_show(struct kobject *kobj,
 						     struct kobj_attribute *attr,
 						     char *buf)
 {
-	return sprintf(buf, "%d\n", dfso_downdifferential);
+	return sprintf(buf, "%d\n", gpu_data->dfso_downdifferential);
 }
 
 static ssize_t simple_ondemand_downdifferential_store(struct kobject *kobj,
@@ -152,10 +149,10 @@ static ssize_t simple_ondemand_downdifferential_store(struct kobject *kobj,
 	unsigned int val;
 
 	sscanf(buf, "%d", &val);
-	if (val > dfso_upthreshold)
+	if (val > gpu_data->dfso_upthreshold)
 		return -EINVAL;
 
-	dfso_downdifferential = val;
+	gpu_data->dfso_downdifferential = val;
 
 	return count;
 }
@@ -221,6 +218,15 @@ static struct devfreq_governor devfreq_simple_ondemand = {
 
 static int __init devfreq_simple_ondemand_init(void)
 {
+	gpu_data = kzalloc(sizeof(*gpu_data), GFP_KERNEL);
+	if (!gpu_data)
+		return -ENOMEM;
+
+	gpu_data->dfso_upthreshold = DFSO_UPTHRESHOLD;
+	gpu_data->dfso_downdifferential = DFSO_DOWNDIFFERENCTIAL;
+	gpu_data->level = 0;
+	gpu_data->load = 0;
+
 	return devfreq_add_governor(&devfreq_simple_ondemand);
 }
 subsys_initcall(devfreq_simple_ondemand_init);
@@ -230,6 +236,7 @@ static void __exit devfreq_simple_ondemand_exit(void)
 	int ret;
 
 	ret = devfreq_remove_governor(&devfreq_simple_ondemand);
+	kfree(gpu_data);
 	if (ret)
 		pr_err("%s: failed remove governor %d\n", __func__, ret);
 
