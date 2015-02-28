@@ -336,7 +336,7 @@ service bugreport /system/bin/bug2go-bugreport
 on property:sys.boot_completed=1
     start qe
     # restore the default I/O scheduler for mobile device
-    write /sys/block/mmcblk0/queue/scheduler row
+    write /sys/block/mmcblk0/queue/scheduler deadline
 
 service mmi-boot-sh /system/bin/sh /init.mmi.boot.sh
     class core
