@@ -7,4 +7,4 @@
 /dev/block/platform/msm_sdcc.1/by-name/userdata       /data        f2fs    rw,discard,nosuid,nodev,noatime,nodiratime,nobarrier,inline_data,inline_xattr  wait,check,encryptable=footer
 
 /devices/platform/msm_hsusb_host/usb1/1-1/1-1:1.0     auto         vfat    defaults                 voldmanaged=usbdisk:auto
-/dev/block/zram0                                      none         swap    defaults                 zramsize=167772160
+/dev/block/zram0                                      none         swap    defaults                 zramsize=209715200
