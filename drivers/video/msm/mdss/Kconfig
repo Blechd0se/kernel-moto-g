@@ -54,8 +54,3 @@ config MDSS_QUICKDRAW
 	default n
 	---help---
 	  MDSS support for Framebuffer quickdraw
-
-config LCD_KCAL
-	depends on FB_MSM_MDSS
-	bool "Enable sysfs for LCD KCAL"
-	default n
