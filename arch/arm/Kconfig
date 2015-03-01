@@ -2380,7 +2380,6 @@ config CPU_FREQ_S3C24XX_DEBUGFS
 
 config AERO_HOTPLUG
 	bool "Aero simple CPU Hotplug driver"
-	depends on POWERSUSPEND || HAS_EARLYSUSPEND
 	help
 	  Enable a simple hotplug driver with low latency mode
 	  and fundamental low battery drainage.
