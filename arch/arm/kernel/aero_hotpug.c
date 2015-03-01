@@ -412,7 +412,7 @@ int __init aero_hotplug_init(void)
 	hot_data->single_cpu_threshold = DEFAULT_FIRST_LEVEL;
 	hot_data->all_cpus_threshold = DEFAULT_SECOND_LEVEL;
 	hot_data->low_latency = false;
-	hot_data->debug = true;
+	hot_data->debug = false;
 	hot_data->up_frequency = DEFAULT_UP_FREQUENCY;
 	hot_data->battery_saver = true;
 
