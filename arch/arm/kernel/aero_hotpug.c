@@ -295,6 +295,11 @@ static inline void suspend_func(struct work_struct *work)
 {	 
 	int cpu;
 
+	/* cancel the hotplug work when the screen is off and flush the WQ */
+	flush_workqueue(wq);
+	cancel_delayed_work_sync(&decide_hotplug);
+	cancel_work_sync(&resume);
+
 	if (hot_data->battery_saver) {
 		for_each_online_cpu(cpu) 
 			if (cpu)
@@ -312,6 +317,8 @@ static inline void resume_func(struct work_struct *work)
 	/* Online only the second core */
 	if (hot_data->battery_saver)
 		set_cpu_up(1);
+
+	cancel_work_sync(&suspend);
 
 	/* Resetting Counters */
 	hot_data->counter[0] = 0;
