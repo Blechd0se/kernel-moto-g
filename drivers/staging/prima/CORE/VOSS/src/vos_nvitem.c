@@ -2349,19 +2349,7 @@ static int create_crda_regulatory_entry(struct wiphy *wiphy,
            }
            else // Enable is only last flag we support
            {
-              pnvEFSTable->halnv.tables.regDomains[NUM_REG_DOMAINS-2].channels[k].enabled =
-                 NV_CHANNEL_ENABLE;
-              // max_power is in dBm
-              pnvEFSTable->halnv.tables.regDomains[NUM_REG_DOMAINS-2].channels[k].pwrLimit =
-                 (tANI_S8) ((wiphy->bands[i]->channels[j].max_power)/100);
-              if ((wiphy->bands[i]->channels[j].flags & IEEE80211_CHAN_NO_HT40) == 0)
-              {
-                 pnvEFSTable->halnv.tables.regDomains[NUM_REG_DOMAINS-2].channels[n].enabled =
-                    NV_CHANNEL_ENABLE;
-                 // 40MHz channel power is half of 20MHz (-3dB) ??
-                 pnvEFSTable->halnv.tables.regDomains[NUM_REG_DOMAINS-2].channels[n].pwrLimit =
-                    (tANI_S8) (((wiphy->bands[i]->channels[j].max_power)/100)-3);
-              }
+              // fall compeltely through
            }
            /* ignore CRDA max_antenna_gain typical is 3dBi, nv.bin antennaGain is
            real gain which should be provided by the real design */
